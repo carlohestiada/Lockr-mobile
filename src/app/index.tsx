@@ -17,8 +17,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthButton } from '@/components/auth/auth-button';
 import { AuthTextInput } from '@/components/auth/auth-text-input';
 import { PasswordVisibilityToggle } from '@/components/auth/password-visibility-toggle';
-import { authService, AuthServiceUnavailableError } from '@/services/auth-service';
 import { AuthColors } from '@/theme/auth-colors';
+import {
+  LocalVaultUnlockUnavailableError,
+  vaultUnlockService,
+} from '@/services/vault-unlock-service';
 
 const REMEMBERED_EMAIL_KEY = 'lockr.remembered-email';
 
@@ -126,12 +129,15 @@ export default function LoginScreen() {
     }
 
     try {
-      await authService.signIn({ email: normalizedEmail, masterPassword });
+      await vaultUnlockService.unlock({
+        email: normalizedEmail,
+        masterPassword,
+      });
     } catch (error) {
       setLoginError(
-        error instanceof AuthServiceUnavailableError
+        error instanceof LocalVaultUnlockUnavailableError
           ? error.message
-          : 'We could not sign you in. Please try again.',
+          : 'We could not unlock your local vault. Please try again.',
       );
     } finally {
       submitting.current = false;
