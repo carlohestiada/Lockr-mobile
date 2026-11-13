@@ -1,6 +1,10 @@
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import { Platform } from 'react-native';
 
+import { serializeEncryptedRecordEnvelope } from '@/services/vault-encryption-service';
+import { VaultCryptoError } from '@/services/vault-crypto-errors';
+import type { ValidatedEncryptedRecordEnvelope } from '@/services/vault-types';
+
 const DATABASE_NAME = 'lockr-vault.db';
 const DATABASE_SCHEMA_VERSION = 1;
 
@@ -72,4 +76,48 @@ export function initializeOfflineVaultDatabase(): Promise<SQLiteDatabase> {
     databasePromise = undefined;
     throw error;
   });
+}
+
+export interface PersistEncryptedRecordInput {
+  recordId: string;
+  localRevision: number;
+  envelope: ValidatedEncryptedRecordEnvelope;
+}
+
+export async function persistEncryptedRecord(
+  input: PersistEncryptedRecordInput,
+): Promise<void> {
+  if (
+    !input.recordId ||
+    input.recordId.length > 255 ||
+    !Number.isSafeInteger(input.localRevision) ||
+    input.localRevision < 1
+  ) {
+    throw new VaultCryptoError('invalid-input');
+  }
+
+  const encryptedPayload = serializeEncryptedRecordEnvelope(input.envelope);
+  const database = await initializeOfflineVaultDatabase();
+
+  await database.runAsync(
+    `INSERT INTO vault_records (
+      record_id,
+      encrypted_payload,
+      key_version,
+      local_revision,
+      server_revision,
+      updated_at
+    ) VALUES (?, ?, ?, ?, NULL, ?)
+    ON CONFLICT(record_id) DO UPDATE SET
+      encrypted_payload = excluded.encrypted_payload,
+      key_version = excluded.key_version,
+      local_revision = excluded.local_revision,
+      server_revision = COALESCE(vault_records.server_revision, excluded.server_revision),
+      updated_at = excluded.updated_at;`,
+    input.recordId,
+    encryptedPayload,
+    input.envelope.keyVersion,
+    input.localRevision,
+    Date.now(),
+  );
 }

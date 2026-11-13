@@ -3,5 +3,7 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",
     "source.sortMembers": "explicit"
-  }
+  },
+  "files.autoSave": "afterDelay",
+  "github.copilot.chat.codesearch.enabled": true
 }
