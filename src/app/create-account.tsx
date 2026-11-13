@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import {
   ArrowLeft,
   Check,
@@ -28,6 +28,7 @@ import {
   RegistrationNotConfiguredError,
   registrationService,
 } from '@/services/registration-service';
+import { ApiRequestError, getFirstValidationError } from '@/services/api/api-errors';
 import {
   validateRegistration,
   type RegistrationErrors,
@@ -37,10 +38,10 @@ import { AuthColors } from '@/theme/auth-colors';
 export default function CreateAccountScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [masterPassword, setMasterPassword] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [showMasterPassword, setShowMasterPassword] = useState(false);
+  const [showAccountPassword, setShowAccountPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<RegistrationErrors>({});
@@ -50,6 +51,7 @@ export default function CreateAccountScreen() {
   const passwordInputRef = useRef<TextInputInstance>(null);
   const confirmPasswordInputRef = useRef<TextInputInstance>(null);
   const submitting = useRef(false);
+  const router = useRouter();
 
   async function handleCreateAccount() {
     if (submitting.current) return;
@@ -57,7 +59,7 @@ export default function CreateAccountScreen() {
     const nextErrors = validateRegistration({
       fullName,
       email,
-      masterPassword,
+      accountPassword,
       confirmPassword,
       acceptedTerms,
     });
@@ -72,17 +74,27 @@ export default function CreateAccountScreen() {
       await registrationService.register({
         fullName: fullName.trim(),
         email: email.trim(),
+        password: accountPassword,
+        passwordConfirmation: confirmPassword,
       });
+      router.replace('/account');
     } catch (error) {
-      setRegistrationError(
-        error instanceof RegistrationNotConfiguredError
-          ? error.message
-          : 'We could not create your account. Please try again later.',
-      );
+      if (error instanceof RegistrationNotConfiguredError) {
+        setRegistrationError(error.message);
+      } else if (error instanceof ApiRequestError) {
+        setErrors({
+          fullName: getFirstValidationError(error, 'name'),
+          email: getFirstValidationError(error, 'email'),
+          accountPassword: getFirstValidationError(error, 'password'),
+        });
+        setRegistrationError(error.message);
+      } else {
+        setRegistrationError('We could not create your account. Please try again later.');
+      }
     } finally {
-      setMasterPassword('');
+      setAccountPassword('');
       setConfirmPassword('');
-      setShowMasterPassword(false);
+      setShowAccountPassword(false);
       setShowConfirmPassword(false);
       submitting.current = false;
       setIsSubmitting(false);
@@ -164,33 +176,33 @@ export default function CreateAccountScreen() {
                 <AuthTextInput
                   autoCapitalize="none"
                   autoComplete="new-password"
-                  error={errors.masterPassword}
+                  error={errors.accountPassword}
                   inputRef={passwordInputRef}
-                  label="Master Password"
+                  label="Account Password"
                   leftIcon={<LockKeyhole color={AuthColors.secondaryText} size={19} />}
                   onChangeText={(value) => {
-                    setMasterPassword(value);
+                    setAccountPassword(value);
                     setErrors((current) => ({
                       ...current,
-                      masterPassword: undefined,
+                      accountPassword: undefined,
                       confirmPassword: undefined,
                     }));
                     setRegistrationError(null);
                   }}
                   onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
-                  placeholder="Create a master password"
+                  placeholder="Create an account password"
                   returnKeyType="next"
                   rightAccessory={
                     <PasswordVisibilityToggle
-                      isVisible={showMasterPassword}
-                      onPress={() => setShowMasterPassword((visible) => !visible)}
+                      isVisible={showAccountPassword}
+                      onPress={() => setShowAccountPassword((visible) => !visible)}
                     />
                   }
-                  secureTextEntry={!showMasterPassword}
+                  secureTextEntry={!showAccountPassword}
                   textContentType="newPassword"
-                  value={masterPassword}
+                  value={accountPassword}
                 />
-                <PasswordStrengthIndicator password={masterPassword} />
+                <PasswordStrengthIndicator password={accountPassword} />
               </View>
 
               <AuthTextInput
@@ -198,7 +210,7 @@ export default function CreateAccountScreen() {
                 autoComplete="new-password"
                 error={errors.confirmPassword}
                 inputRef={confirmPasswordInputRef}
-                label="Confirm Master Password"
+                label="Confirm Account Password"
                 leftIcon={<LockKeyhole color={AuthColors.secondaryText} size={19} />}
                 onChangeText={(value) => {
                   setConfirmPassword(value);
@@ -206,7 +218,7 @@ export default function CreateAccountScreen() {
                   setRegistrationError(null);
                 }}
                 onSubmitEditing={() => void handleCreateAccount()}
-                placeholder="Confirm your master password"
+                placeholder="Confirm your account password"
                 returnKeyType="done"
                 rightAccessory={
                   <PasswordVisibilityToggle
@@ -225,9 +237,9 @@ export default function CreateAccountScreen() {
                 <ShieldCheck color={AuthColors.accent} size={19} />
               </View>
               <View style={styles.securityCopy}>
-                <Text style={styles.securityTitle}>Your master password protects your vault.</Text>
+                <Text style={styles.securityTitle}>Your account password protects sign-in.</Text>
                 <Text style={styles.securityDescription}>
-                  Lockr never stores your master password in plaintext.
+                  Your separate vault master password is never sent to Laravel and is not set here.
                 </Text>
               </View>
             </View>

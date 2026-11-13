@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { ArrowRight, Check, LockKeyhole, Mail, ShieldCheck } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
@@ -17,11 +17,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthButton } from '@/components/auth/auth-button';
 import { AuthTextInput } from '@/components/auth/auth-text-input';
 import { PasswordVisibilityToggle } from '@/components/auth/password-visibility-toggle';
+import { ApiConfigurationError } from '@/services/api/api-config';
+import { ApiRequestError, getFirstValidationError } from '@/services/api/api-errors';
+import { authService } from '@/services/auth-service';
 import { AuthColors } from '@/theme/auth-colors';
-import {
-  LocalVaultUnlockUnavailableError,
-  vaultUnlockService,
-} from '@/services/vault-unlock-service';
 
 const REMEMBERED_EMAIL_KEY = 'lockr.remembered-email';
 
@@ -31,7 +30,7 @@ function isValidEmail(email: string) {
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
-  const [masterPassword, setMasterPassword] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
   const [rememberEmail, setRememberEmail] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,6 +41,7 @@ export default function LoginScreen() {
   const passwordInputRef = useRef<TextInputInstance>(null);
   const emailWasEdited = useRef(false);
   const submitting = useRef(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -112,8 +112,8 @@ export default function LoginScreen() {
     } else if (!isValidEmail(normalizedEmail)) {
       nextErrors.email = 'Enter a valid email address.';
     }
-    if (!masterPassword) {
-      nextErrors.password = 'Enter your master password.';
+    if (!accountPassword) {
+      nextErrors.password = 'Enter your account password.';
     }
 
     setFieldErrors(nextErrors);
@@ -129,17 +129,29 @@ export default function LoginScreen() {
     }
 
     try {
-      await vaultUnlockService.unlock({
+      await authService.signIn({
         email: normalizedEmail,
-        masterPassword,
+        password: accountPassword,
       });
+      router.replace('/account');
     } catch (error) {
-      setLoginError(
-        error instanceof LocalVaultUnlockUnavailableError
-          ? error.message
-          : 'We could not unlock your local vault. Please try again.',
-      );
+      if (error instanceof ApiConfigurationError) {
+        setLoginError('Account sign-in is not configured. Your credentials were not sent.');
+      } else if (error instanceof ApiRequestError) {
+        setFieldErrors({
+          email: getFirstValidationError(error, 'email'),
+          password: getFirstValidationError(error, 'password'),
+        });
+        setLoginError(
+          error.code === 'unauthorized'
+            ? 'Your email or account password is incorrect.'
+            : error.message,
+        );
+      } else {
+        setLoginError('We could not sign in to your account. Please try again later.');
+      }
     } finally {
+      setAccountPassword('');
       submitting.current = false;
       setIsSubmitting(false);
     }
@@ -167,7 +179,7 @@ export default function LoginScreen() {
             <View style={styles.welcome}>
               <Text style={styles.welcomeTitle}>Welcome Back</Text>
               <Text style={styles.welcomeSubtitle}>
-                Sign in to securely access your personal vault.
+                Sign in to your Lockr account. Vault unlocking is separate.
               </Text>
             </View>
 
@@ -203,15 +215,15 @@ export default function LoginScreen() {
                 autoComplete="current-password"
                 error={fieldErrors.password}
                 inputRef={passwordInputRef}
-                label="Master Password"
+                label="Account Password"
                 leftIcon={<LockKeyhole color={AuthColors.secondaryText} size={19} />}
                 onChangeText={(value) => {
-                  setMasterPassword(value);
+                  setAccountPassword(value);
                   setFieldErrors((current) => ({ ...current, password: undefined }));
                   setLoginError(null);
                 }}
                 onSubmitEditing={() => void handleSignIn()}
-                placeholder="Enter your master password"
+                placeholder="Enter your account password"
                 returnKeyType="done"
                 rightAccessory={
                   <PasswordVisibilityToggle
@@ -221,7 +233,7 @@ export default function LoginScreen() {
                 }
                 secureTextEntry={!isPasswordVisible}
                 textContentType="password"
-                value={masterPassword}
+                value={accountPassword}
               />
             </View>
 
@@ -258,7 +270,7 @@ export default function LoginScreen() {
 
             <AuthButton
               isLoading={isSubmitting}
-              label="Unlock My Vault"
+              label="Sign In"
               onPress={() => void handleSignIn()}
             />
 
@@ -274,7 +286,9 @@ export default function LoginScreen() {
 
             <View style={styles.securityFooter}>
               <LockKeyhole color={AuthColors.secondaryText} size={14} />
-              <Text style={styles.securityText}>Your security is our priority.</Text>
+              <Text style={styles.securityText}>
+                Account sign-in is separate from vault unlocking.
+              </Text>
             </View>
           </View>
         </ScrollView>

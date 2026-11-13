@@ -41,8 +41,8 @@ export function PasswordStrengthIndicator({ password }: PasswordStrengthIndicato
         ))}
       </View>
       <Text style={styles.guidance}>
-        Use at least 12 characters. A unique passphrase is easier to remember; avoid reusing
-        passwords.
+        Use at least 14 characters with a mix of uppercase and lowercase letters, numbers, and
+        symbols. Avoid reusing passwords.
       </Text>
     </View>
   );

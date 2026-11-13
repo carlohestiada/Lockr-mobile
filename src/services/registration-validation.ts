@@ -3,7 +3,7 @@ export type PasswordStrength = 'Weak' | 'Fair' | 'Good' | 'Strong';
 export interface RegistrationValues {
   fullName: string;
   email: string;
-  masterPassword: string;
+  accountPassword: string;
   confirmPassword: string;
   acceptedTerms: boolean;
 }
@@ -11,7 +11,7 @@ export interface RegistrationValues {
 export interface RegistrationErrors {
   fullName?: string;
   email?: string;
-  masterPassword?: string;
+  accountPassword?: string;
   confirmPassword?: string;
   acceptedTerms?: string;
 }
@@ -20,7 +20,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function getPasswordStrength(password: string): PasswordStrength {
   const length = Array.from(password).length;
-  if (length < 12) {
+  if (length < 14) {
     return 'Weak';
   }
 
@@ -61,13 +61,21 @@ export function validateRegistration(values: RegistrationValues): RegistrationEr
     errors.email = 'Enter a valid email address.';
   }
 
-  if (Array.from(values.masterPassword).length < 12) {
-    errors.masterPassword = 'Use at least 12 characters for your master password.';
+  if (Array.from(values.accountPassword).length < 14) {
+    errors.accountPassword = 'Use at least 14 characters for your account password.';
+  } else if (
+    !/[a-z]/.test(values.accountPassword) ||
+    !/[A-Z]/.test(values.accountPassword) ||
+    !/\d/.test(values.accountPassword) ||
+    !/[^a-zA-Z0-9]/.test(values.accountPassword)
+  ) {
+    errors.accountPassword =
+      'Use uppercase and lowercase letters, a number, and a symbol in your account password.';
   }
 
   if (!values.confirmPassword) {
-    errors.confirmPassword = 'Confirm your master password.';
-  } else if (values.confirmPassword !== values.masterPassword) {
+    errors.confirmPassword = 'Confirm your account password.';
+  } else if (values.confirmPassword !== values.accountPassword) {
     errors.confirmPassword = 'Your passwords do not match.';
   }
 
