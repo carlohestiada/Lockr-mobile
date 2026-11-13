@@ -8,6 +8,7 @@ export const AuthColors = {
   placeholder: '#94A3B8',
   secondaryText: '#64748B',
   softBlue: '#EFF6FF',
+  success: '#16A34A',
   warningText: '#A16207',
   white: '#FFFFFF',
 } as const;

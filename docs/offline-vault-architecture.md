@@ -6,13 +6,16 @@ This design targets native iOS and Android. The Laravel service remains separate
 and is treated as unable to decrypt vault contents. Web is not an offline-vault
 platform; it must not fall back to browser storage for secrets.
 
-The app currently has only fail-closed authentication and vault-unlock
-placeholders, plus a SQLite schema initializer. It does **not** implement
-encryption, password verification, vault CRUD/search, sync, conflict resolution,
-trusted-device recovery, or offline unlock. The database schema is a storage
-boundary scaffold, not evidence that data written to it is encrypted. Do not
-persist actual credentials until the cryptographic implementation and its tests
-have been selected and reviewed.
+The app currently has fail-closed authentication, vault-unlock, and account
+registration service placeholders, plus a SQLite schema initializer. The
+registration UI validates the master password locally but deliberately does not
+pass it to the account registration service. No registration request is sent.
+The app does **not** implement encryption, password verification, vault
+initialization, vault CRUD/search, sync, conflict resolution, trusted-device
+recovery, or offline unlock. The database schema is a storage boundary scaffold,
+not evidence that data written to it is encrypted. Do not persist actual
+credentials until the cryptographic implementation and its tests have been
+selected and reviewed.
 
 ## Trust boundaries and key hierarchy
 
