@@ -7,15 +7,34 @@ and is treated as unable to decrypt vault contents. Web is not an offline-vault
 platform; it must not fall back to browser storage for secrets.
 
 The app currently has fail-closed authentication, vault-unlock, and account
-registration service placeholders, plus a SQLite schema initializer. The
-registration UI validates the master password locally but deliberately does not
-pass it to the account registration service. No registration request is sent.
-The app does **not** implement encryption, password verification, vault
-initialization, vault CRUD/search, sync, conflict resolution, trusted-device
-recovery, or offline unlock. The database schema is a storage boundary scaffold,
-not evidence that data written to it is encrypted. Do not persist actual
-credentials until the cryptographic implementation and its tests have been
-selected and reviewed.
+registration service placeholders, plus a SQLite schema initializer. Account
+recovery is also not configured. The recovery UI only shows confirmation after
+the service returns an accepted result; the current service returns
+`not-configured` and sends no request. A future endpoint must return a generic
+response regardless of whether an account exists. The registration UI validates
+the master password locally but deliberately does not pass it to the account
+registration service. No registration or recovery request is sent. Account
+password recovery must not reset a master password, decrypt a vault, replace
+vault keys, or delete local encrypted data. The app does **not** implement
+encryption, password verification, vault initialization, vault CRUD/search,
+sync, conflict resolution, trusted-device recovery, or offline unlock. The
+database schema is a storage boundary scaffold, not evidence that data written
+to it is encrypted. Do not persist actual credentials until the cryptographic
+implementation and its tests have been selected and reviewed.
+
+## Account recovery
+
+The mobile recovery service currently returns `not-configured` and makes no
+network request. When a Laravel recovery endpoint is added, it must use HTTPS,
+short-lived single-use reset tokens, and generic accepted responses with
+indistinguishable behavior for known and unknown addresses. Never log reset
+tokens or persist them in ordinary app storage. Rate limits and network errors
+must not disclose whether an account exists. Expired recovery links can restart
+account recovery but cannot reset or decrypt a local vault.
+
+Account recovery only restores the account session. Vault recovery requires its
+own reviewed key protocol; until then, preserve existing encrypted vault data
+and do not imply that changing an account password restores vault access.
 
 ## Trust boundaries and key hierarchy
 

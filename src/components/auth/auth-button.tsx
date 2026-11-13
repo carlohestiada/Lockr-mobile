@@ -4,19 +4,26 @@ import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { AuthColors } from '@/theme/auth-colors';
 
 interface AuthButtonProps {
+  isDisabled?: boolean;
   isLoading: boolean;
   label: string;
   onPress: () => void;
 }
 
-export function AuthButton({ isLoading, label, onPress }: AuthButtonProps) {
+export function AuthButton({ isDisabled = false, isLoading, label, onPress }: AuthButtonProps) {
+  const isDisabledButton = isLoading || isDisabled;
+
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ busy: isLoading, disabled: isLoading }}
-      disabled={isLoading}
+      accessibilityState={{ busy: isLoading, disabled: isDisabledButton }}
+      disabled={isDisabledButton}
       onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && !isLoading && styles.pressed]}>
+      style={({ pressed }) => [
+        styles.button,
+        isDisabled && !isLoading && styles.disabled,
+        pressed && !isDisabledButton && styles.pressed,
+      ]}>
       {isLoading ? (
         <ActivityIndicator color={AuthColors.white} />
       ) : (
@@ -47,6 +54,9 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.88,
     transform: [{ scale: 0.99 }],
+  },
+  disabled: {
+    opacity: 0.58,
   },
   label: {
     color: AuthColors.white,
