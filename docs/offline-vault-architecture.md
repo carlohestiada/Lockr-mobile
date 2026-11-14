@@ -24,16 +24,32 @@ vault keys, or delete local encrypted data.
 
 ## Cryptographic libraries and platform support
 
-- `expo-crypto` (`~58.0.8`) provides native AES-GCM, AES key objects, and
+- `expo` is `58.0.25`, React Native is `0.88.1`, `expo-crypto` is `58.0.8`,
+  and `expo-dev-client` is `58.0.20`. `expo-crypto` provides native AES-GCM,
+  AES key objects, and
   asynchronous secure random bytes on Android and iOS. The selected API supports
   256-bit keys, 12-byte GCM nonces, 16-byte tags, and Additional Authenticated
-  Data (AAD). It is part of Expo Go.
-- `react-native-argon2` (`4.0.0`) provides the Argon2id primitive through
-  Argon2Swift on iOS and argon2kt on Android. It is a React Native native
-  module, not part of Expo Go; use a custom development/production build. The
-  current environment has not built or smoke-tested this native module against
-  the app's React Native 0.88 / Expo SDK 58 toolchain. An Android native build
-  and physical-device KDF benchmark remain release gates.
+  Data (AAD). Expo documents it as available on Android and iOS and included in
+  Expo Go.
+- `react-native-argon2` is `4.0.0`. Its package source wraps Argon2Swift 1.x on
+  iOS and argon2kt 1.6.0 on Android. It is a legacy React Native `ReactPackage`
+  / `NativeModule`, not an Expo module or Expo Go dependency. It is discovered
+  through React Native autolinking; inspection found no package config plugin
+  or extra app-config native setting required. The package README's published
+  compatibility table only lists React Native 0.60-0.63 for earlier package
+  releases; it does not certify package 4.0.0 with React Native 0.88, Expo SDK
+  58, or the New Architecture. Its Android Gradle file also retains an older
+  Android Gradle Plugin declaration, a dynamic `com.facebook.react:react-native:+`
+  dependency, and a JCenter repository. These are build-compatibility risks to
+  resolve only against actual build failures; this implementation does not
+  patch the dependency speculatively.
+- Expo Autolinking resolution was run on Android and iOS and found the
+  `RNArgon2Package` Android source and `RNArgon2.podspec` iOS source. This only
+  confirms discovery metadata; it is not evidence that either native project
+  compiles or that the module runs correctly.
+- `expo-dev-client` is already installed. `eas.json` contains an internal
+  development profile. A custom build is required to exercise Argon2; do not
+  use Expo Go for this validation.
 - SecureStore continues to hold only the account authentication token. It is not
   used for the master password, KDF output, or vault DEK. SecureStore protects
   small device-bound values but does not by itself establish zero knowledge,
@@ -43,10 +59,107 @@ No fallback KDF or plaintext mode is implemented. If native Argon2id is absent
 or fails, key derivation rejects. Argon2 parameters must not be reduced at
 runtime to make a slow device pass.
 
-The automated service tests use Node's AES-GCM implementation and a
-deterministic Argon2 test double. They verify service wiring, envelope checks,
-and failure handling only; they do not validate Expo's native AES implementation
-or Argon2 output. Native known-answer tests and device builds remain required.
+The Jest service tests use Node's AES-GCM implementation and a deterministic
+Argon2 test double. They verify service wiring, envelope checks, and failure
+handling only; they do not validate Expo's native AES implementation or Argon2
+output. A dev-only route at `/native-crypto-validation` exercises Expo Crypto
+and `react-native-argon2` directly in a custom native build. It reports test
+names, pass/fail, per-test elapsed time, runtime device/OS metadata, and maximum
+observed JavaScript timer delay; it never reports passwords, keys, plaintext,
+or native exception details.
+
+The native route includes the NIST AES-256-GCM known-answer vector with an all
+zero 256-bit key, 96-bit nonce, and 16-byte plaintext (ciphertext
+`cea7403d4d606b6e074ec5d3baf39d18`, tag
+`d0d1c8a799996bf0265b98b5d48ab919`), plus native negative-AAD/key/ciphertext/tag
+checks. Its Argon2id production-parameter vector uses password
+`Lockr-native-argon2-kat-v1`, salt bytes `00` through `0f`, v=19, m=65,536 KiB,
+t=3, p=1, and 32-byte output. Expected output
+`69af934f8d8586b234d2f5076eedeb918f1aef67b5780d43169d2898e7bfd737` was
+generated independently with `hash-wasm` 4.13.0's Argon2id WebAssembly
+implementation. The native runner also checks changed passwords/salts,
+unsupported parameters, fresh nonces, random salt/key generation, and repeated
+AES operations.
+
+**Native build/test status (2026-11-14): not run.** This Windows environment has
+no `ANDROID_HOME` or `ANDROID_SDK_ROOT`, no `adb` or emulator, and only Java
+8.0.491; it cannot compile/install an Android development build or measure
+Argon2 on a device. No Android device model, Android version, KDF duration,
+process-memory profile, or actual native KAT result is available yet. iOS
+compatibility is also **not verified**: Expo Crypto officially lists iOS
+support, and the Argon2 package contains a CocoaPod/Swift implementation, but
+there is no Xcode environment here and no iOS native build/test has run. Do not
+report either platform's package compatibility as proven from source inspection
+alone.
+
+The required Android JavaScript export was attempted twice but did not
+complete: Windows Application Control blocked the installed `hermesc.exe`
+binary (`spawn UNKNOWN`). Running the compiler directly confirmed the same
+policy block. No attempt was made to bypass this policy. `expo-doctor` passed
+20/20 checks, which is not a native compilation test. The existing mocked Jest
+suite passed 11/11; it does not execute the dev-only native validation route.
+
+The moderate `minimatch` advisory GHSA-g3hv-75wg-m249 (globparts amplification
+denial of service; affected versions are below 11.0.1) was initially reachable
+through Expo's `@expo/fingerprint` production dependency. `package.json` now
+overrides only that dependency to `minimatch@^11.0.1`; the lockfile resolves
+`11.0.8`, and `npm audit --omit=dev` reports no production vulnerabilities.
+The override avoids the audit tool's incompatible Expo 52 downgrade.
+
+The full `npm audit` still reports development-tool dependency findings:
+vulnerable `minimatch` copies remain in Jest/TypeScript-ESLint tooling, along
+with reported Jest/glob and `deepmerge` advisories (25 moderate and 1 low
+findings in the full tree at validation time). These packages are not part of
+the production dependency audit, but the development tree is not fully
+remediated; update the affected tooling in a dedicated compatibility-checked
+change rather than applying broad major-version overrides. This does not
+establish exposure in the installed mobile runtime.
+
+`react-native-argon2@4.0.0` remains a native compatibility risk, not a confirmed
+cryptographic defect: its support for React Native 0.88 / Expo SDK 58 has not
+been verified by an Android or iOS build. No speculative native changes were
+made because the required Android toolchain/device and macOS/Xcode environment
+are unavailable here.
+
+### Running native validation
+
+For a local Android build on Windows, install JDK 17 and Android Studio, including
+Android SDK Platform 36, Build Tools, and Platform Tools. Set `JAVA_HOME` to
+JDK 17 and `ANDROID_HOME` to the SDK path, enable USB debugging, and confirm
+`adb devices` lists an authorized device. From the project root:
+
+```powershell
+npx.cmd expo run:android --device
+npx.cmd expo start --dev-client
+```
+
+The first command generates CNG native project files, compiles, and installs the
+development client. Start or reconnect the dev server, then open
+`lockrmobile://native-crypto-validation` on the device and tap **Run native
+tests**. Save the displayed runtime/device details, each Argon2 duration, timer
+delay, and pass/fail results. Use Android Studio Profiler to record app-process
+memory during repeated KDF runs; `Device.totalMemory` in the screen is total
+device RAM, not application memory. Repeat the test on minimum-supported device
+hardware and a supported emulator, and inspect Android Studio/Logcat for crashes
+without collecting credentials or key material.
+
+Cloud alternative, after Expo account login and project/package identity
+configuration:
+
+```powershell
+npx.cmd eas-cli@latest build --platform android --profile development
+npx.cmd expo start --dev-client
+```
+
+Install the internal APK on the device, open the same validation route, and
+record the runtime results. Do not use Expo Go.
+
+For iOS, on a Mac with Xcode and CocoaPods available, build/install using
+`npx expo run:ios --device` or create an iOS development build with
+`npx eas-cli@latest build --platform ios --profile development`. Run the same
+route and verify all native AES tests and the Argon2id known-answer result on an
+actual iOS device. Record the model, OS version, KDF timing, and memory
+observations before marking iOS supported.
 
 ## KDF configuration
 
