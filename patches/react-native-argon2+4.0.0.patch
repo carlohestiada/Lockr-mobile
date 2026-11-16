@@ -1,0 +1,43 @@
+diff --git a/node_modules/react-native-argon2/android/build.gradle b/node_modules/react-native-argon2/android/build.gradle
+index 85dff9f..0db18bc 100644
+--- a/node_modules/react-native-argon2/android/build.gradle
++++ b/node_modules/react-native-argon2/android/build.gradle
+@@ -4,34 +4,19 @@ def safeExtGet(prop, fallback) {
+     rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+ }
+ 
+-buildscript {
+-    repositories {
+-        google()
+-        mavenCentral()
+-    }
+-    dependencies {
+-        classpath 'com.android.tools.build:gradle:4.1.0'
+-    }
+-}
+-
+ android {
+-    compileSdkVersion safeExtGet('compileSdkVersion', 30)
+-    buildToolsVersion safeExtGet('buildToolsVersion', '30.0.3')
++    compileSdkVersion safeExtGet('compileSdkVersion', 36)
++    buildToolsVersion safeExtGet('buildToolsVersion', '36.0.0')
+ 
+     defaultConfig {
+         minSdkVersion safeExtGet('minSdkVersion', 21)
+-        targetSdkVersion safeExtGet('targetSdkVersion', 30)
++        targetSdkVersion safeExtGet('targetSdkVersion', 36)
+         versionCode 1
+         versionName '1.0'
+     }
+ }
+ 
+-repositories {
+-    google()
+-    jcenter()
+-}
+-
+ dependencies {
+-    implementation 'com.facebook.react:react-native:+'
++    implementation 'com.facebook.react:react-android'
+     implementation 'com.lambdapioneer.argon2kt:argon2kt:1.6.0'
+ }
