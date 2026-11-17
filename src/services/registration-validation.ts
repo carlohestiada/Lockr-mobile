@@ -44,6 +44,23 @@ export function getPasswordStrength(password: string): PasswordStrength {
   return 'Weak';
 }
 
+export function getAccountPasswordError(password: string): string | undefined {
+  if (Array.from(password).length < 14) {
+    return 'Use at least 14 characters for your account password.';
+  }
+
+  if (
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/\d/.test(password) ||
+    !/[^a-zA-Z0-9]/.test(password)
+  ) {
+    return 'Use uppercase and lowercase letters, a number, and a symbol in your account password.';
+  }
+
+  return undefined;
+}
+
 export function validateRegistration(values: RegistrationValues): RegistrationErrors {
   const errors: RegistrationErrors = {};
   const fullName = values.fullName.trim();
@@ -61,16 +78,9 @@ export function validateRegistration(values: RegistrationValues): RegistrationEr
     errors.email = 'Enter a valid email address.';
   }
 
-  if (Array.from(values.accountPassword).length < 14) {
-    errors.accountPassword = 'Use at least 14 characters for your account password.';
-  } else if (
-    !/[a-z]/.test(values.accountPassword) ||
-    !/[A-Z]/.test(values.accountPassword) ||
-    !/\d/.test(values.accountPassword) ||
-    !/[^a-zA-Z0-9]/.test(values.accountPassword)
-  ) {
-    errors.accountPassword =
-      'Use uppercase and lowercase letters, a number, and a symbol in your account password.';
+  const accountPasswordError = getAccountPasswordError(values.accountPassword);
+  if (accountPasswordError) {
+    errors.accountPassword = accountPasswordError;
   }
 
   if (!values.confirmPassword) {

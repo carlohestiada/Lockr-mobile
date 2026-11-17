@@ -17,6 +17,15 @@ per environment. Timeout and connectivity failures are reported separately.
 | POST | `/api/v1/auth/forgot-password` | None | Request Laravel's generic password-reset email |
 | POST | `/api/v1/auth/reset-password` | None | Reset only the Laravel account password |
 
+Password-reset emails include both Laravel's existing browser reset link and a
+mobile link in the form
+`lockrmobile://reset-password?token=<token>&email=<encoded-email>`. The mobile
+link opens the `reset-password` screen in the installed app; the browser link
+continues to use Laravel's `/reset-password/{token}` page. The app submits
+reset attempts to the API without storing the reset token or new password. A
+successful reset returns the user to sign-in; reset tokens remain single-use
+and expire according to Laravel's password broker configuration.
+
 Successful login and registration return `{ "data": { "token", "token_type": "Bearer", "user" } }`. Authenticated responses contain only `id`, `name`, and `email`. Validation errors use HTTP 422; invalid credentials and invalid sessions use HTTP 401; forbidden requests use HTTP 403; rate limits use HTTP 429.
 
 At startup the mobile app reads the token from SecureStore and verifies it with
