@@ -21,6 +21,7 @@ import { PasswordVisibilityToggle } from '@/components/auth/password-visibility-
 import { ApiConfigurationError } from '@/services/api/api-config';
 import { ApiRequestError, getFirstValidationError } from '@/services/api/api-errors';
 import { useAuth } from '@/contexts/auth-context';
+import { useVault } from '@/contexts/vault-context';
 import { AuthStorageError } from '@/services/token-storage';
 import { AuthColors } from '@/theme/auth-colors';
 
@@ -44,6 +45,7 @@ export default function LoginScreen() {
   const emailWasEdited = useRef(false);
   const submitting = useRef(false);
   const router = useRouter();
+  const vault = useVault();
   const {
     canRetrySessionRestore,
     retrySessionRestore,
@@ -304,6 +306,23 @@ export default function LoginScreen() {
               onPress={() => void handleSignIn()}
             />
 
+            {vault.status !== 'loading' && vault.status !== 'error' && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push(vault.metadata ? '/vault-unlock' : '/vault-setup')}
+                style={styles.localVaultButton}>
+                <LockKeyhole color={AuthColors.accent} size={17} />
+                <Text style={styles.localVaultLabel}>
+                  {vault.metadata ? 'Unlock local vault' : 'Set up a local vault'}
+                </Text>
+              </Pressable>
+            )}
+            {vault.status === 'error' && vault.error && (
+              <Text accessibilityLiveRegion="polite" style={styles.storageError}>
+                {vault.error}
+              </Text>
+            )}
+
             <View style={styles.registrationRow}>
               <Text style={styles.registrationPrompt}>Don&apos;t have an account?</Text>
               <Link href="/create-account" asChild>
@@ -482,6 +501,23 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 5,
     marginTop: 24,
+  },
+  localVaultButton: {
+    minHeight: 48,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: AuthColors.border,
+    borderRadius: 13,
+    backgroundColor: AuthColors.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+  },
+  localVaultLabel: {
+    color: AuthColors.navy,
+    fontSize: 14,
+    fontWeight: '700',
   },
   registrationPrompt: {
     color: AuthColors.secondaryText,

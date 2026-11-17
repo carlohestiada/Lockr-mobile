@@ -164,6 +164,28 @@ export async function runNativeVaultCryptoValidation(
       }
     });
 
+    await run('AES-GCM honors a pre-reserved nonce for persisted records', async () => {
+      const key = await AESEncryptionKey.import(new Uint8Array(32).fill(11));
+      const nonce = new Uint8Array(12).fill(17);
+      const envelope = await encryptVaultData(asciiBytes('reserved-nonce-check'), key, {
+        keyVersion: 1,
+        additionalData: AAD,
+        nonce,
+      });
+      if (encodeHex(decodeBase64(envelope.nonce, 12)) !== encodeHex(nonce)) {
+        throw new Error();
+      }
+      const plaintext = await decryptVaultData(envelope, key, AAD);
+      try {
+        if (encodeHex(plaintext) !== encodeHex(asciiBytes('reserved-nonce-check'))) {
+          throw new Error();
+        }
+      } finally {
+        plaintext.fill(0);
+        nonce.fill(0);
+      }
+    });
+
     await run('Expo Crypto generates distinct vault salts and 256-bit keys', async () => {
       const [firstConfiguration, secondConfiguration] = await Promise.all([
         createVaultKdfConfiguration(),

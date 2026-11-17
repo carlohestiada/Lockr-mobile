@@ -6,7 +6,11 @@ export type VaultCryptoErrorCode =
   | 'key-generation-failed'
   | 'encryption-failed'
   | 'authentication-failed'
-  | 'key-import-failed';
+  | 'key-import-failed'
+  | 'corrupted-metadata'
+  | 'vault-locked'
+  | 'vault-already-initialized'
+  | 'metadata-conflict';
 
 const ERROR_MESSAGES: Record<VaultCryptoErrorCode, string> = {
   'unsupported-platform': 'Vault cryptography is available only on iOS and Android.',
@@ -17,6 +21,10 @@ const ERROR_MESSAGES: Record<VaultCryptoErrorCode, string> = {
   'encryption-failed': 'The vault data could not be encrypted.',
   'authentication-failed': 'The encrypted vault data could not be authenticated.',
   'key-import-failed': 'The vault key could not be imported.',
+  'corrupted-metadata': 'The local vault metadata is corrupted or unsupported.',
+  'vault-locked': 'Unlock the vault before accessing its contents.',
+  'vault-already-initialized': 'A local vault already exists on this device.',
+  'metadata-conflict': 'The local vault settings changed concurrently. Retry the operation.',
 };
 
 export class VaultCryptoError extends Error {

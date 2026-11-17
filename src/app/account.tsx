@@ -1,4 +1,5 @@
 import { LockKeyhole, ShieldCheck } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ScrollView,
@@ -10,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthButton } from '@/components/auth/auth-button';
 import { useAuth } from '@/contexts/auth-context';
+import { useVault } from '@/contexts/vault-context';
 import { AuthStorageError } from '@/services/token-storage';
 import { AuthColors } from '@/theme/auth-colors';
 
@@ -17,6 +19,8 @@ export default function AccountScreen() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { sessionNotice, signOut, user } = useAuth();
+  const vault = useVault();
+  const router = useRouter();
 
   async function handleSignOut() {
     if (isSigningOut) {
@@ -72,14 +76,41 @@ export default function AccountScreen() {
               <View style={styles.vaultNotice}>
                 <LockKeyhole color={AuthColors.accent} size={20} />
                 <View style={styles.vaultCopy}>
-                  <Text style={styles.vaultTitle}>Vault remains separate</Text>
+                  <Text style={styles.vaultTitle}>
+                    {vault.status === 'unlocked'
+                      ? 'Local vault is unlocked'
+                      : vault.status === 'error'
+                        ? 'Local vault unavailable'
+                        : vault.metadata
+                        ? 'Local vault is locked'
+                        : 'Set up your local vault'}
+                  </Text>
                   <Text style={styles.vaultDescription}>
-                    Account sign-in does not unlock a local vault. Vault unlocking is not
-                    configured yet, and your account password is never used as the vault master
-                    password.
+                    {vault.error ??
+                      'Account sign-in is separate. Your master password and vault contents stay on this device; the account password does not unlock the vault.'}
                   </Text>
                 </View>
               </View>
+              <AuthButton
+                isLoading={false}
+                isDisabled={vault.status === 'error' || vault.status === 'loading'}
+                label={
+                  vault.status === 'unlocked'
+                    ? 'Open local vault'
+                    : vault.status === 'error'
+                      ? 'Vault unavailable'
+                    : vault.metadata
+                      ? 'Unlock local vault'
+                      : 'Set up local vault'
+                }
+                onPress={() => router.push(
+                  vault.status === 'unlocked'
+                    ? '/vault'
+                    : vault.metadata
+                      ? '/vault-unlock'
+                      : '/vault-setup',
+                )}
+              />
 
               {sessionNotice && (
                 <Text accessibilityLiveRegion="polite" style={styles.errorText}>

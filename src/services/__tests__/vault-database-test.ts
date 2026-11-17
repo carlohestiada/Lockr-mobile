@@ -19,6 +19,7 @@ describe('encrypted SQLite record persistence', () => {
     );
     const database = {
       getFirstAsync: jest.fn(async (_sql: string) => ({ user_version: 0 })),
+      getAllAsync: jest.fn(async (_sql: string) => []),
       execAsync: jest.fn(async (_sql: string) => undefined),
       runAsync,
       closeAsync: jest.fn(async () => undefined),

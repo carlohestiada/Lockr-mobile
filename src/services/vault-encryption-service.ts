@@ -22,6 +22,7 @@ const AUTHENTICATION_TAG_LENGTH_BYTES = 16;
 export interface EncryptVaultDataOptions {
   keyVersion: number;
   additionalData: Uint8Array;
+  nonce?: Uint8Array;
 }
 
 export async function encryptVaultData(
@@ -37,7 +38,7 @@ export async function encryptVaultData(
 
   let nonce: Uint8Array | undefined;
   try {
-    nonce = await getRandomBytesAsync(NONCE_LENGTH_BYTES);
+    nonce = options.nonce ? new Uint8Array(options.nonce) : await getRandomBytesAsync(NONCE_LENGTH_BYTES);
     if (nonce.length !== NONCE_LENGTH_BYTES) {
       throw new Error();
     }
@@ -175,6 +176,8 @@ function validateKeyAndOptions(
     !Number.isSafeInteger(options.keyVersion) ||
     options.keyVersion < 1 ||
     !(options.additionalData instanceof Uint8Array)
+    || (options.nonce !== undefined &&
+      (!(options.nonce instanceof Uint8Array) || options.nonce.length !== NONCE_LENGTH_BYTES))
   ) {
     throw new VaultCryptoError('invalid-input');
   }
