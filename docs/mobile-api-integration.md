@@ -2,6 +2,10 @@
 
 The mobile app uses Laravel's versioned JSON API. Set `EXPO_PUBLIC_API_URL` to the API root ending in `/api/v1`; it is public configuration, not a credential. Production URLs must use HTTPS.
 
+Requests time out after 15 seconds by default. Set the optional
+`EXPO_PUBLIC_API_TIMEOUT_MS` to an integer from 1 to 120000 to override this
+per environment. Timeout and connectivity failures are reported separately.
+
 ## Endpoints
 
 | Method | Endpoint | Authentication | Purpose |
@@ -13,7 +17,15 @@ The mobile app uses Laravel's versioned JSON API. Set `EXPO_PUBLIC_API_URL` to t
 | POST | `/api/v1/auth/forgot-password` | None | Request Laravel's generic password-reset email |
 | POST | `/api/v1/auth/reset-password` | None | Reset only the Laravel account password |
 
-Successful login and registration return `{ "data": { "token", "token_type": "Bearer", "user" } }`. Authenticated responses contain only `id`, `name`, and `email`. Validation errors use HTTP 422; invalid credentials and invalid sessions use HTTP 401; rate limits use HTTP 429.
+Successful login and registration return `{ "data": { "token", "token_type": "Bearer", "user" } }`. Authenticated responses contain only `id`, `name`, and `email`. Validation errors use HTTP 422; invalid credentials and invalid sessions use HTTP 401; forbidden requests use HTTP 403; rate limits use HTTP 429.
+
+At startup the mobile app reads the token from SecureStore and verifies it with
+`/auth/me` before allowing authenticated routes. It rechecks after the app has
+been backgrounded for at least five minutes. A confirmed 401 removes only the
+token used by that request; a network failure keeps the token but fails closed
+to the sign-in screen with a retry option. Logout removes the local token
+before attempting best-effort server revocation, so an offline device remains
+signed out locally.
 
 Registration and password reset require a 14-character minimum, mixed case, numbers, symbols, and confirmation. Sanctum stores only a hash of each personal access token. Mobile tokens expire after 30 days and are stored on-device in Expo SecureStore; logout removes only the account-authentication token. A password reset revokes the user's API tokens.
 

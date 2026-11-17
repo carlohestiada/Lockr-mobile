@@ -16,10 +16,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthButton } from '@/components/auth/auth-button';
 import { AuthTextInput } from '@/components/auth/auth-text-input';
+import { AuthInitializingScreen } from '@/components/auth/auth-initializing-screen';
 import { PasswordVisibilityToggle } from '@/components/auth/password-visibility-toggle';
 import { ApiConfigurationError } from '@/services/api/api-config';
 import { ApiRequestError, getFirstValidationError } from '@/services/api/api-errors';
-import { authService } from '@/services/auth-service';
+import { useAuth } from '@/contexts/auth-context';
+import { AuthStorageError } from '@/services/token-storage';
 import { AuthColors } from '@/theme/auth-colors';
 
 const REMEMBERED_EMAIL_KEY = 'lockr.remembered-email';
@@ -42,6 +44,13 @@ export default function LoginScreen() {
   const emailWasEdited = useRef(false);
   const submitting = useRef(false);
   const router = useRouter();
+  const {
+    canRetrySessionRestore,
+    retrySessionRestore,
+    sessionNotice,
+    signIn,
+    status,
+  } = useAuth();
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -129,7 +138,7 @@ export default function LoginScreen() {
     }
 
     try {
-      await authService.signIn({
+      await signIn({
         email: normalizedEmail,
         password: accountPassword,
       });
@@ -147,6 +156,8 @@ export default function LoginScreen() {
             ? 'Your email or account password is incorrect.'
             : error.message,
         );
+      } else if (error instanceof AuthStorageError) {
+        setLoginError('We could not securely save your sign-in. Please try again.');
       } else {
         setLoginError('We could not sign in to your account. Please try again later.');
       }
@@ -155,6 +166,10 @@ export default function LoginScreen() {
       submitting.current = false;
       setIsSubmitting(false);
     }
+  }
+
+  if (status === 'initializing') {
+    return <AuthInitializingScreen />;
   }
 
   return (
@@ -266,6 +281,21 @@ export default function LoginScreen() {
               <Text accessibilityLiveRegion="polite" style={styles.loginError}>
                 {loginError}
               </Text>
+            )}
+            {sessionNotice && (
+              <View style={styles.sessionNotice}>
+                <Text accessibilityLiveRegion="polite" style={styles.sessionNoticeText}>
+                  {sessionNotice}
+                </Text>
+                {canRetrySessionRestore && (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={retrySessionRestore}
+                    style={styles.retrySessionButton}>
+                    <Text style={styles.retrySessionText}>Try again</Text>
+                  </Pressable>
+                )}
+              </View>
             )}
 
             <AuthButton
@@ -425,6 +455,25 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginBottom: 12,
     textAlign: 'center',
+  },
+  sessionNotice: {
+    marginBottom: 12,
+    gap: 6,
+  },
+  sessionNoticeText: {
+    color: AuthColors.warningText,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  retrySessionButton: {
+    alignSelf: 'center',
+    padding: 6,
+  },
+  retrySessionText: {
+    color: AuthColors.accent,
+    fontSize: 13,
+    fontWeight: '700',
   },
   registrationRow: {
     flexDirection: 'row',

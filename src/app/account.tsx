@@ -1,9 +1,6 @@
-import { useRouter } from 'expo-router';
-import { ArrowLeft, LockKeyhole, ShieldCheck } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { LockKeyhole, ShieldCheck } from 'lucide-react-native';
+import { useState } from 'react';
 import {
-  ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,56 +9,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthButton } from '@/components/auth/auth-button';
-import { ApiConfigurationError } from '@/services/api/api-config';
-import { ApiRequestError } from '@/services/api/api-errors';
-import { authService } from '@/services/auth-service';
+import { useAuth } from '@/contexts/auth-context';
+import { AuthStorageError } from '@/services/token-storage';
 import { AuthColors } from '@/theme/auth-colors';
-import type { AuthUser } from '@/types/auth';
 
 export default function AccountScreen() {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [signOutMessage, setSignOutMessage] = useState<string | null>(null);
-  const [refreshAttempt, setRefreshAttempt] = useState(0);
-  const router = useRouter();
-
-  useEffect(() => {
-    let isMounted = true;
-
-    void authService
-      .getCurrentUser()
-      .then((currentUser) => {
-        if (isMounted) {
-          setUser(currentUser);
-        }
-      })
-      .catch((requestError: unknown) => {
-        if (!isMounted) {
-          return;
-        }
-
-        if (
-          requestError instanceof ApiRequestError &&
-          requestError.code === 'unauthorized'
-        ) {
-          router.replace('/');
-          return;
-        }
-
-        setError('We could not verify your account session. Check your connection and try again.');
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [refreshAttempt, router]);
+  const { sessionNotice, signOut, user } = useAuth();
 
   async function handleSignOut() {
     if (isSigningOut) {
@@ -70,28 +25,25 @@ export default function AccountScreen() {
 
     setIsSigningOut(true);
     setError(null);
-    setSignOutMessage(null);
+    let localSignedOut = false;
 
     try {
-      await authService.signOut();
-      setUser(null);
-      setSignOutMessage('You are signed out on this device.');
-    } catch (requestError) {
-      if (requestError instanceof ApiRequestError) {
-        setUser(null);
-        setSignOutMessage(
-          'This device is signed out, but the server could not confirm token revocation. The token will expire automatically.',
-        );
-      } else if (requestError instanceof ApiConfigurationError) {
-        setUser(null);
-        setSignOutMessage(
-          'This device is signed out, but the API was not configured to confirm server-side revocation.',
-        );
-      } else {
+      const result = await signOut();
+      if (!result.localSignedOut) {
         setError('We could not securely clear this device session. Please try again.');
+      } else {
+        localSignedOut = true;
+      }
+    } catch (requestError) {
+      if (requestError instanceof AuthStorageError) {
+        setError('We could not securely clear this device session. Please try again.');
+      } else {
+        setError('We could not complete sign out. Please try again.');
       }
     } finally {
-      setIsSigningOut(false);
+      if (!localSignedOut) {
+        setIsSigningOut(false);
+      }
     }
   }
 
@@ -108,38 +60,7 @@ export default function AccountScreen() {
             <Text style={styles.brandName}>Lockr</Text>
           </View>
 
-          {isLoading ? (
-            <View style={styles.loading}>
-              <ActivityIndicator color={AuthColors.accent} size="large" />
-              <Text style={styles.mutedText}>Verifying your account…</Text>
-            </View>
-          ) : signOutMessage ? (
-            <View style={styles.messageCard}>
-              <Text accessibilityLiveRegion="polite" style={styles.messageText}>
-                {signOutMessage}
-              </Text>
-              <AuthButton
-                isLoading={false}
-                label="Back to Sign In"
-                onPress={() => router.replace('/')}
-              />
-            </View>
-          ) : error ? (
-            <View style={styles.messageCard}>
-              <Text accessibilityLiveRegion="polite" style={styles.errorText}>
-                {error}
-              </Text>
-              <AuthButton
-                isLoading={isLoading}
-                label="Try Again"
-                onPress={() => {
-                  setError(null);
-                  setIsLoading(true);
-                  setRefreshAttempt((attempt) => attempt + 1);
-                }}
-              />
-            </View>
-          ) : user ? (
+          {user ? (
             <>
               <View style={styles.welcome}>
                 <Text style={styles.title}>Account Connected</Text>
@@ -160,32 +81,25 @@ export default function AccountScreen() {
                 </View>
               </View>
 
+              {sessionNotice && (
+                <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+                  {sessionNotice}
+                </Text>
+              )}
+
+              {error && (
+                <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+                  {error}
+                </Text>
+              )}
+
               <AuthButton
                 isLoading={isSigningOut}
                 label="Sign Out"
                 onPress={() => void handleSignOut()}
               />
             </>
-          ) : (
-            <View style={styles.messageCard}>
-              <Text style={styles.errorText}>No active account session was found.</Text>
-              <AuthButton
-                isLoading={false}
-                label="Back to Sign In"
-                onPress={() => router.replace('/')}
-              />
-            </View>
-          )}
-
-          {!isLoading && !signOutMessage && (
-            <Pressable
-              accessibilityRole="link"
-              onPress={() => router.replace('/')}
-              style={styles.backLink}>
-              <ArrowLeft color={AuthColors.accent} size={16} />
-              <Text style={styles.signInText}>Sign In</Text>
-            </Pressable>
-          )}
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -227,15 +141,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '700',
     letterSpacing: -0.7,
-  },
-  loading: {
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 36,
-  },
-  mutedText: {
-    color: AuthColors.secondaryText,
-    fontSize: 14,
   },
   welcome: {
     alignItems: 'center',
@@ -290,32 +195,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
-  messageCard: {
-    gap: 16,
-  },
-  messageText: {
-    color: AuthColors.navy,
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: 'center',
-  },
   errorText: {
     color: AuthColors.errorText,
     fontSize: 14,
     lineHeight: 21,
     textAlign: 'center',
-  },
-  backLink: {
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    marginTop: 24,
-    padding: 8,
-  },
-  signInText: {
-    color: AuthColors.accent,
-    fontSize: 13,
-    fontWeight: '700',
   },
 });

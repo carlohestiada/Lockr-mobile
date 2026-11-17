@@ -1,5 +1,6 @@
 import { ApiConfigurationError } from '@/services/api/api-config';
 import { authService } from '@/services/auth-service';
+import type { AuthSession } from '@/types/auth';
 
 export interface RegisterAccountRequest {
   password: string;
@@ -16,7 +17,7 @@ export class RegistrationNotConfiguredError extends Error {
 }
 
 export const registrationService = {
-  async register(request: RegisterAccountRequest) {
+  async register(request: RegisterAccountRequest): Promise<AuthSession> {
     try {
       return await authService.register({
         name: request.fullName,

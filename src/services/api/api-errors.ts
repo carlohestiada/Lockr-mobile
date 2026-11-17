@@ -2,7 +2,9 @@ import type { ApiValidationErrors } from '@/types/api';
 
 export type ApiRequestErrorCode =
   | 'network'
+  | 'timeout'
   | 'unauthorized'
+  | 'forbidden'
   | 'validation'
   | 'rate-limited'
   | 'server'
@@ -10,7 +12,9 @@ export type ApiRequestErrorCode =
 
 const ERROR_MESSAGES: Record<ApiRequestErrorCode, string> = {
   network: 'The service could not be reached. Check your connection and try again.',
+  timeout: 'The service took too long to respond. Check your connection and try again.',
   unauthorized: 'Your account session is invalid or has expired. Sign in again.',
+  forbidden: 'You do not have permission to complete this request.',
   validation: 'Check the entered information and try again.',
   'rate-limited': 'Too many attempts. Wait a moment and try again.',
   server: 'The service is temporarily unavailable. Try again later.',

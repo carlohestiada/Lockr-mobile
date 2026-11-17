@@ -21,14 +21,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthButton } from '@/components/auth/auth-button';
+import { AuthInitializingScreen } from '@/components/auth/auth-initializing-screen';
 import { AuthTextInput } from '@/components/auth/auth-text-input';
 import { PasswordStrengthIndicator } from '@/components/auth/password-strength-indicator';
 import { PasswordVisibilityToggle } from '@/components/auth/password-visibility-toggle';
-import {
-  RegistrationNotConfiguredError,
-  registrationService,
-} from '@/services/registration-service';
+import { useAuth } from '@/contexts/auth-context';
+import { RegistrationNotConfiguredError } from '@/services/registration-service';
 import { ApiRequestError, getFirstValidationError } from '@/services/api/api-errors';
+import { AuthStorageError } from '@/services/token-storage';
 import {
   validateRegistration,
   type RegistrationErrors,
@@ -52,6 +52,7 @@ export default function CreateAccountScreen() {
   const confirmPasswordInputRef = useRef<TextInputInstance>(null);
   const submitting = useRef(false);
   const router = useRouter();
+  const { register, status } = useAuth();
 
   async function handleCreateAccount() {
     if (submitting.current) return;
@@ -71,7 +72,7 @@ export default function CreateAccountScreen() {
     setIsSubmitting(true);
 
     try {
-      await registrationService.register({
+      await register({
         fullName: fullName.trim(),
         email: email.trim(),
         password: accountPassword,
@@ -81,6 +82,8 @@ export default function CreateAccountScreen() {
     } catch (error) {
       if (error instanceof RegistrationNotConfiguredError) {
         setRegistrationError(error.message);
+      } else if (error instanceof AuthStorageError) {
+        setRegistrationError('We could not securely save your sign-in. Please try again.');
       } else if (error instanceof ApiRequestError) {
         setErrors({
           fullName: getFirstValidationError(error, 'name'),
@@ -99,6 +102,10 @@ export default function CreateAccountScreen() {
       submitting.current = false;
       setIsSubmitting(false);
     }
+  }
+
+  if (status === 'initializing') {
+    return <AuthInitializingScreen />;
   }
 
   return (

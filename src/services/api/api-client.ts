@@ -1,14 +1,24 @@
-import { clearAuthToken, getAuthToken } from '@/services/token-storage';
-import { getApiBaseUrl } from '@/services/api/api-config';
+import { notifyUnauthorized } from '@/services/auth-events';
+import {
+  getApiBaseUrl,
+  getApiRequestTimeoutMs,
+} from '@/services/api/api-config';
 import { ApiRequestError, type ApiRequestErrorCode } from '@/services/api/api-errors';
+import {
+  AuthStorageError,
+  clearAuthToken,
+  getAuthToken,
+} from '@/services/token-storage';
 import type { ApiValidationErrors } from '@/types/api';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-interface ApiRequestOptions {
+export interface ApiRequestOptions {
   authenticated?: boolean;
+  authToken?: string;
   body?: unknown;
   method?: HttpMethod;
+  timeoutMs?: number;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -36,6 +46,7 @@ function getValidationErrors(payload: unknown): ApiValidationErrors {
 
 function getErrorCode(status: number): ApiRequestErrorCode {
   if (status === 401) return 'unauthorized';
+  if (status === 403) return 'forbidden';
   if (status === 422) return 'validation';
   if (status === 429) return 'rate-limited';
   if (status >= 500) return 'server';
@@ -47,21 +58,33 @@ export async function apiRequest<TResponse>(
   options: ApiRequestOptions = {},
 ): Promise<TResponse> {
   const baseUrl = getApiBaseUrl();
+  const timeoutMs = options.timeoutMs ?? getApiRequestTimeoutMs();
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) {
+    throw new ApiRequestError('request', null);
+  }
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
   };
+  let requestToken: string | undefined;
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
 
   if (options.authenticated) {
-    const token = await getAuthToken();
-    if (!token) {
+    requestToken = options.authToken ?? (await getAuthToken()) ?? undefined;
+    if (!requestToken) {
       throw new ApiRequestError('unauthorized', 401);
     }
-    headers.Authorization = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${requestToken}`;
   }
+
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
 
   let response: Response;
   try {
@@ -69,30 +92,56 @@ export async function apiRequest<TResponse>(
       method: options.method ?? 'GET',
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: controller.signal,
     });
-  } catch {
-    throw new ApiRequestError('network', null);
-  }
 
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    if (response.status === 401 && options.authenticated) {
-      await clearAuthToken();
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      if (timedOut) {
+        throw new ApiRequestError('timeout', null);
+      }
+      payload = null;
     }
 
-    const code = getErrorCode(response.status);
-    throw new ApiRequestError(
-      code,
-      response.status,
-      code === 'validation' ? getValidationErrors(payload) : {},
-    );
-  }
+    if (!response.ok) {
+      if (response.status === 401 && options.authenticated) {
+        if (requestToken) {
+          try {
+            if (await clearAuthToken(requestToken)) {
+              notifyUnauthorized(requestToken);
+            }
+          } catch (error) {
+            if (error instanceof AuthStorageError) {
+              notifyUnauthorized(requestToken);
+            }
+            throw error;
+          }
+        }
+      }
 
-  return payload as TResponse;
+      const code = getErrorCode(response.status);
+      throw new ApiRequestError(
+        code,
+        response.status,
+        code === 'validation' ? getValidationErrors(payload) : {},
+      );
+    }
+
+    return payload as TResponse;
+  } catch (error) {
+    if (error instanceof ApiRequestError) {
+      throw error;
+    }
+    if (error instanceof AuthStorageError) {
+      throw error;
+    }
+    if (timedOut) {
+      throw new ApiRequestError('timeout', null);
+    }
+    throw new ApiRequestError('network', null);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
