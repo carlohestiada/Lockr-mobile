@@ -78,7 +78,7 @@ export default function CreateAccountScreen() {
         password: accountPassword,
         passwordConfirmation: confirmPassword,
       });
-      router.replace('/account');
+      router.replace('/vault-onboarding');
     } catch (error) {
       if (error instanceof RegistrationNotConfiguredError) {
         setRegistrationError(error.message);

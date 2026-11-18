@@ -4,17 +4,21 @@ import { Pressable, StyleSheet } from 'react-native';
 import { AuthColors } from '@/theme/auth-colors';
 
 interface PasswordVisibilityToggleProps {
+  accessibilityLabel?: string;
   isVisible: boolean;
   onPress: () => void;
 }
 
 export function PasswordVisibilityToggle({
+  accessibilityLabel,
   isVisible,
   onPress,
 }: PasswordVisibilityToggleProps) {
   return (
     <Pressable
-      accessibilityLabel={isVisible ? 'Hide master password' : 'Show master password'}
+      accessibilityLabel={accessibilityLabel ?? (
+        isVisible ? 'Hide master password' : 'Show master password'
+      )}
       accessibilityRole="button"
       accessibilityState={{ selected: isVisible }}
       hitSlop={10}

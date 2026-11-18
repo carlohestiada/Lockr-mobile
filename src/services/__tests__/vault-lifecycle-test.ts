@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import * as Crypto from 'expo-crypto';
 
@@ -42,6 +42,7 @@ let mockMetadata: VaultMetadata | null = null;
 let mockFailNextMetadataWrite = false;
 let mockRecords = new Map<string, StoredEncryptedRecord>();
 let mockReservedNonces = new Set<string>();
+const originalFetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
 
 const mockReadVaultMetadata = jest.fn(async () => mockMetadata);
 const mockCreateVaultMetadata = jest.fn(async (metadata: VaultMetadata) => {
@@ -155,6 +156,19 @@ describe('local vault lifecycle and encrypted credentials', () => {
     mockRecords = new Map();
     mockReservedNonces = new Set();
     jest.clearAllMocks();
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      writable: true,
+      value: jest.fn(),
+    });
+  });
+
+  afterEach(() => {
+    if (originalFetchDescriptor) {
+      Object.defineProperty(globalThis, 'fetch', originalFetchDescriptor);
+    } else {
+      Reflect.deleteProperty(globalThis, 'fetch');
+    }
   });
 
   it('initializes once with a confirmed recovery key and rejects duplicate initialization', async () => {
@@ -205,6 +219,45 @@ describe('local vault lifecycle and encrypted credentials', () => {
     ]);
     expect(() => assertVaultSessionActive(unlocked)).toThrow();
     expect(decryptedCache).toBe('');
+  });
+
+  it('rejects invalid master passwords without persisting or sending them', async () => {
+    const recoveryKey = await generateVaultRecoveryKey();
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+
+    try {
+      await expect(initializeLocalVault({
+        ...request(recoveryKey),
+        masterPassword: 'too short',
+        masterPasswordConfirmation: 'too short',
+      })).rejects.toThrow('14–4096 characters');
+      expect(mockMetadata).toBeNull();
+      expect(fetchSpy).not.toHaveBeenCalled();
+
+      const initialized = await initializeLocalVault(request(recoveryKey));
+      expect(JSON.stringify(mockMetadata)).not.toContain('a long vault master phrase 01');
+      expect(fetchSpy).not.toHaveBeenCalled();
+      await lockVaultSession(initialized.session);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('locks without deleting encrypted vault metadata or credentials', async () => {
+    const recoveryKey = await generateVaultRecoveryKey();
+    const { session } = await initializeLocalVault(request(recoveryKey));
+    const credential = await createVaultCredential(session, newCredential());
+    const encryptedRecord = mockRecords.get(credential.id);
+
+    await lockVaultSession(session);
+
+    expect(mockMetadata).not.toBeNull();
+    expect(mockRecords.get(credential.id)).toEqual(encryptedRecord);
+    const restored = await vaultUnlockService.unlock({
+      masterPassword: 'a long vault master phrase 01',
+    });
+    expect(restored.vaultId).toBe(session.vaultId);
+    await lockVaultSession(restored);
   });
 
   it('encrypts CRUD fields, searches only decrypted memory, and rejects tampering', async () => {

@@ -4,13 +4,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthButton } from '@/components/auth/auth-button';
+import { SignOutButton } from '@/components/auth/sign-out-button';
 import { VaultScreen } from '@/components/vault/vault-screen';
 import { VaultTextField } from '@/components/vault/vault-text-field';
+import { useAuth } from '@/contexts/auth-context';
 import { useVault } from '@/contexts/vault-context';
 import { AuthColors } from '@/theme/auth-colors';
 
 export default function VaultUnlockScreen() {
   const router = useRouter();
+  const { status: authStatus } = useAuth();
   const { registerSensitiveCacheCleaner, status, unlock, error: vaultError } = useVault();
   const [masterPassword, setMasterPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -72,11 +75,15 @@ export default function VaultUnlockScreen() {
           <Text style={styles.linkText}>Forgot your vault master password?</Text>
         </Pressable>
       </Link>
-      <Link href="/" asChild>
-        <Pressable accessibilityRole="link" style={styles.link}>
-          <Text style={styles.secondaryLink}>Back to account sign in</Text>
-        </Pressable>
-      </Link>
+      {authStatus === 'authenticated' ? (
+        <SignOutButton />
+      ) : (
+        <Link href="/" asChild>
+          <Pressable accessibilityRole="link" style={styles.link}>
+            <Text style={styles.secondaryLink}>Back to account sign in</Text>
+          </Pressable>
+        </Link>
+      )}
     </VaultScreen>
   );
 }

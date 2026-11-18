@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthButton } from '@/components/auth/auth-button';
+import { SignOutButton } from '@/components/auth/sign-out-button';
 import { VaultScreen } from '@/components/vault/vault-screen';
 import { VaultTextField } from '@/components/vault/vault-text-field';
 import { useVault } from '@/contexts/vault-context';
@@ -219,6 +220,7 @@ export default function VaultSettingsScreen() {
       {error && <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>}
       {notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
       <AuthButton isLoading={false} label="Lock vault now" onPress={() => void handleLock()} />
+      <SignOutButton />
     </VaultScreen>
   );
 }

@@ -39,6 +39,7 @@ function RootNavigator() {
           redirectTo="/">
           <Stack.Screen name="account" />
           <Stack.Screen name="explore" />
+          <Stack.Screen name="vault-onboarding" />
         </Stack.Protected>
         <Stack.Protected
           guard={status === 'authenticated' && __DEV__}
@@ -65,6 +66,7 @@ function RootNavigator() {
         <Stack.Protected
           guard={vault.status === 'unlocked'}
           redirectTo="/vault-unlock">
+          <Stack.Screen name="vault-setup-complete" />
           <Stack.Screen name="vault" />
           <Stack.Screen name="vault-credential" />
           <Stack.Screen name="vault-settings" />

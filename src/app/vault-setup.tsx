@@ -18,6 +18,7 @@ export default function VaultSetupScreen() {
   const [recoveryKey, setRecoveryKey] = useState('');
   const [recoveryConfirmation, setRecoveryConfirmation] = useState('');
   const [masterVisible, setMasterVisible] = useState(false);
+  const [confirmationVisible, setConfirmationVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,7 +61,7 @@ export default function VaultSetupScreen() {
       setMasterConfirmation('');
       setRecoveryKey('');
       setRecoveryConfirmation('');
-      router.replace('/vault');
+      router.replace('/vault-setup-complete');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Vault setup failed. No data was changed.');
     } finally {
@@ -70,30 +71,45 @@ export default function VaultSetupScreen() {
 
   return (
     <VaultScreen
-      title="Set up your vault"
-      subtitle="This vault is encrypted locally. Your account password is not used for vault encryption.">
+      title="Set Up Your Vault"
+      subtitle="Create a separate Vault Master Password to protect your locally encrypted vault. It is never sent to Laravel and is different from your account password.">
       <VaultTextField
-        label="Vault master password"
+        label="Master Password"
         value={masterPassword}
         onChangeText={setMasterPassword}
         secureTextEntry={!masterVisible}
         autoCapitalize="none"
         textContentType="newPassword"
         placeholder="At least 14 characters"
-      />
-      <PasswordVisibilityToggle
-        isVisible={masterVisible}
-        onPress={() => setMasterVisible((value) => !value)}
+        rightAccessory={
+          <PasswordVisibilityToggle
+            isVisible={masterVisible}
+            onPress={() => setMasterVisible((value) => !value)}
+          />
+        }
       />
       <VaultTextField
-        label="Confirm master password"
+        label="Confirm Master Password"
         value={masterConfirmation}
         onChangeText={setMasterConfirmation}
-        secureTextEntry
+        secureTextEntry={!confirmationVisible}
         autoCapitalize="none"
         textContentType="newPassword"
         placeholder="Enter it again"
+        rightAccessory={
+          <PasswordVisibilityToggle
+            accessibilityLabel={confirmationVisible
+              ? 'Hide master password confirmation'
+              : 'Show master password confirmation'}
+            isVisible={confirmationVisible}
+            onPress={() => setConfirmationVisible((value) => !value)}
+          />
+        }
       />
+      <Text style={styles.passwordGuidance}>
+        Use 14–4096 characters. A longer, unique passphrase is easier to remember and harder to
+        guess.
+      </Text>
       {!recoveryKey ? (
         <Pressable
           accessibilityRole="button"
@@ -127,9 +143,9 @@ export default function VaultSetupScreen() {
         label="Create encrypted vault"
         onPress={() => void handleInitialize()}
       />
-      <Link href="/" asChild>
+      <Link href="/vault-onboarding" asChild>
         <Pressable accessibilityRole="link" style={styles.link}>
-          <Text style={styles.linkText}>Back to account sign in</Text>
+          <Text style={styles.linkText}>Back to vault options</Text>
         </Pressable>
       </Link>
     </VaultScreen>
@@ -150,6 +166,12 @@ const styles = StyleSheet.create({
     color: AuthColors.accent,
     fontSize: 14,
     fontWeight: '700',
+  },
+  passwordGuidance: {
+    marginTop: -8,
+    color: AuthColors.secondaryText,
+    fontSize: 12,
+    lineHeight: 18,
   },
   recoveryCard: {
     gap: 12,

@@ -1,6 +1,6 @@
 import { LockKeyhole, ShieldCheck } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -13,6 +13,7 @@ import { AuthButton } from '@/components/auth/auth-button';
 import { useAuth } from '@/contexts/auth-context';
 import { useVault } from '@/contexts/vault-context';
 import { AuthStorageError } from '@/services/token-storage';
+import { getAuthenticatedVaultRoute } from '@/services/vault-navigation';
 import { AuthColors } from '@/theme/auth-colors';
 
 export default function AccountScreen() {
@@ -21,6 +22,13 @@ export default function AccountScreen() {
   const { sessionNotice, signOut, user } = useAuth();
   const vault = useVault();
   const router = useRouter();
+  const vaultRoute = getAuthenticatedVaultRoute(vault.status);
+
+  useEffect(() => {
+    if (vaultRoute) {
+      router.replace(vaultRoute);
+    }
+  }, [router, vaultRoute]);
 
   async function handleSignOut() {
     if (isSigningOut) {
@@ -32,11 +40,13 @@ export default function AccountScreen() {
     let localSignedOut = false;
 
     try {
+      await vault.lock();
       const result = await signOut();
       if (!result.localSignedOut) {
         setError('We could not securely clear this device session. Please try again.');
       } else {
         localSignedOut = true;
+        router.replace('/');
       }
     } catch (requestError) {
       if (requestError instanceof AuthStorageError) {
@@ -49,6 +59,10 @@ export default function AccountScreen() {
         setIsSigningOut(false);
       }
     }
+  }
+
+  if (vaultRoute) {
+    return null;
   }
 
   return (
