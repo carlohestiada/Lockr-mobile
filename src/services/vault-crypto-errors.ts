@@ -1,5 +1,7 @@
 export type VaultCryptoErrorCode =
   | 'unsupported-platform'
+  | 'development-build-required'
+  | 'native-module-unavailable'
   | 'invalid-input'
   | 'unsupported-version'
   | 'key-derivation-failed'
@@ -14,6 +16,10 @@ export type VaultCryptoErrorCode =
 
 const ERROR_MESSAGES: Record<VaultCryptoErrorCode, string> = {
   'unsupported-platform': 'Vault cryptography is available only on iOS and Android.',
+  'development-build-required':
+    'Vault setup requires the Lockr development build. Expo Go does not include the native Argon2 module. Build and install the Android development app, then open Lockr there.',
+  'native-module-unavailable':
+    'The native Argon2 module is unavailable in this app build. Rebuild and reinstall the Lockr development build before setting up the vault.',
   'invalid-input': 'The vault cryptographic input is invalid.',
   'unsupported-version': 'The vault cryptographic format is not supported.',
   'key-derivation-failed': 'The vault key could not be derived.',

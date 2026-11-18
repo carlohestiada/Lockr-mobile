@@ -2,7 +2,7 @@ diff --git a/node_modules/react-native-argon2/android/build.gradle b/node_module
 index 85dff9f..0db18bc 100644
 --- a/node_modules/react-native-argon2/android/build.gradle
 +++ b/node_modules/react-native-argon2/android/build.gradle
-@@ -4,34 +4,19 @@ def safeExtGet(prop, fallback) {
+@@ -4,34 +4,20 @@ def safeExtGet(prop, fallback) {
      rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
  }
  
@@ -17,6 +17,7 @@ index 85dff9f..0db18bc 100644
 -}
 -
  android {
++    namespace 'com.poowf.argon2'
 -    compileSdkVersion safeExtGet('compileSdkVersion', 30)
 -    buildToolsVersion safeExtGet('buildToolsVersion', '30.0.3')
 +    compileSdkVersion safeExtGet('compileSdkVersion', 36)

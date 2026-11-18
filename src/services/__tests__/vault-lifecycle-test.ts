@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import * as Crypto from 'expo-crypto';
+import argon2 from 'react-native-argon2';
 
 import { validateVaultMetadata } from '@/services/vault-metadata';
 import {
@@ -174,6 +175,9 @@ describe('local vault lifecycle and encrypted credentials', () => {
   it('initializes once with a confirmed recovery key and rejects duplicate initialization', async () => {
     const recoveryKey = await generateVaultRecoveryKey();
     const initialized = await initializeLocalVault(request(recoveryKey));
+    const credential = await createVaultCredential(initialized.session, newCredential());
+    const storedMetadata = mockMetadata;
+    const storedRecords = new Map(mockRecords);
 
     expect(initialized.metadata.aad_version).toBe(2);
     expect(initialized.metadata.recovery?.enabled).toBe(true);
@@ -184,8 +188,22 @@ describe('local vault lifecycle and encrypted credentials', () => {
       code: 'vault-already-initialized',
     });
     expect(mockCreateVaultMetadata).toHaveBeenCalledTimes(1);
+    expect(mockMetadata).toEqual(storedMetadata);
+    expect(mockRecords.get(credential.id)).toEqual(storedRecords.get(credential.id));
 
     await lockVaultSession(initialized.session);
+  });
+
+  it('does not persist partial vault metadata when Argon2 derivation fails', async () => {
+    const recoveryKey = await generateVaultRecoveryKey();
+    jest.mocked(argon2).mockRejectedValueOnce(new Error('native derivation failed'));
+
+    await expect(initializeLocalVault(request(recoveryKey))).rejects.toMatchObject({
+      code: 'key-derivation-failed',
+    });
+
+    expect(mockMetadata).toBeNull();
+    expect(mockCreateVaultMetadata).not.toHaveBeenCalled();
   });
 
   it('rejects mismatched confirmations and authenticates unlock locally', async () => {

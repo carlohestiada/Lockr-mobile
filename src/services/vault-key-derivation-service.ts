@@ -3,6 +3,7 @@ import { AESEncryptionKey, getRandomBytesAsync } from 'expo-crypto';
 import { decodeBase64, encodeBase64, encodeHex, decodeHex } from '@/services/vault-crypto-encoding';
 import { assertNativeVaultPlatform } from '@/services/vault-crypto-platform';
 import { VaultCryptoError } from '@/services/vault-crypto-errors';
+import { loadNativeArgon2 } from '@/services/vault-argon2-runtime';
 import type { VaultKdfConfiguration } from '@/services/vault-types';
 
 const SALT_LENGTH_BYTES = 16;
@@ -51,14 +52,12 @@ export async function deriveVaultWrappingKey(
     throw new VaultCryptoError('invalid-input');
   }
 
+  const argon2 = loadNativeArgon2();
   const salt = decodeBase64(configuration.salt, SALT_LENGTH_BYTES);
   let keyBytes: Uint8Array | undefined;
 
   try {
     const saltHex = encodeHex(salt);
-    // Load only on native derivation; Expo Go does not include this module.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { default: argon2 } = require('react-native-argon2') as typeof import('react-native-argon2');
     const result = await argon2(masterPassword, saltHex, {
       mode: 'argon2id',
       memory: ARGON2ID_V1.memoryKiB,
