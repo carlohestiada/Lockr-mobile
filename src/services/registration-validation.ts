@@ -68,8 +68,8 @@ export function validateRegistration(values: RegistrationValues): RegistrationEr
 
   if (!fullName) {
     errors.fullName = 'Enter your full name.';
-  } else if (Array.from(fullName).length < 2 || Array.from(fullName).length > 80) {
-    errors.fullName = 'Use a name between 2 and 80 characters.';
+  } else if (Array.from(fullName).length > 255) {
+    errors.fullName = 'Use a name no longer than 255 characters.';
   }
 
   if (!email) {

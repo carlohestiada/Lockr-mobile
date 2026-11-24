@@ -4,7 +4,7 @@ import { apiRequest } from '@/services/api/api-client';
 import { authService } from '@/services/auth-service';
 import { registrationService } from '@/services/registration-service';
 import { clearAuthToken, getAuthToken, saveAuthToken } from '@/services/token-storage';
-import type { AuthSession } from '@/types/auth';
+import type { AuthSession, AuthUser } from '@/types/auth';
 import { ApiRequestError } from '@/services/api/api-errors';
 
 jest.mock('@/services/api/api-client', () => ({
@@ -21,6 +21,11 @@ const session: AuthSession = {
   token: 'issued-token',
   token_type: 'Bearer',
   user: { id: 8, name: 'Mobile User', email: 'mobile@example.com' },
+};
+const registeredUser: AuthUser = {
+  id: 8,
+  name: 'Mobile User',
+  email: 'mobile@example.com',
 };
 
 describe('authentication service', () => {
@@ -72,9 +77,8 @@ describe('authentication service', () => {
     expect(saveAuthToken).not.toHaveBeenCalled();
   });
 
-  it('registers with Laravel field names and persists the returned token', async () => {
-    jest.mocked(apiRequest).mockResolvedValue({ data: session });
-    jest.mocked(saveAuthToken).mockResolvedValue(undefined);
+  it('registers with Laravel field names without saving a token or signing in', async () => {
+    jest.mocked(apiRequest).mockResolvedValue({ data: registeredUser });
 
     await expect(
       registrationService.register({
@@ -83,7 +87,7 @@ describe('authentication service', () => {
         password: 'StrongAccountPassword123!',
         passwordConfirmation: 'StrongAccountPassword123!',
       }),
-    ).resolves.toEqual(session);
+    ).resolves.toEqual(registeredUser);
 
     expect(apiRequest).toHaveBeenCalledWith('auth/register', {
       method: 'POST',
@@ -94,7 +98,42 @@ describe('authentication service', () => {
         password_confirmation: 'StrongAccountPassword123!',
       },
     });
-    expect(saveAuthToken).toHaveBeenCalledWith('issued-token');
+    expect(saveAuthToken).not.toHaveBeenCalled();
+  });
+
+  it('preserves Laravel registration validation errors', async () => {
+    jest.mocked(apiRequest).mockRejectedValue(
+      new ApiRequestError('validation', 422, {
+        email: ['The email has already been taken.'],
+      }),
+    );
+
+    await expect(
+      registrationService.register({
+        fullName: 'Mobile User',
+        email: 'mobile@example.com',
+        password: 'StrongAccountPassword123!',
+        passwordConfirmation: 'StrongAccountPassword123!',
+      }),
+    ).rejects.toMatchObject({
+      code: 'validation',
+      validationErrors: { email: ['The email has already been taken.'] },
+    });
+    expect(saveAuthToken).not.toHaveBeenCalled();
+  });
+
+  it('reports network failures without saving an auth token', async () => {
+    jest.mocked(apiRequest).mockRejectedValue(new ApiRequestError('network', null));
+
+    await expect(
+      registrationService.register({
+        fullName: 'Mobile User',
+        email: 'mobile@example.com',
+        password: 'StrongAccountPassword123!',
+        passwordConfirmation: 'StrongAccountPassword123!',
+      }),
+    ).rejects.toMatchObject({ code: 'network' });
+    expect(saveAuthToken).not.toHaveBeenCalled();
   });
 
   it('restores a valid saved session through the authenticated current-user endpoint', async () => {

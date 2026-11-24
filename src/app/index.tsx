@@ -1,4 +1,4 @@
-import { Link, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { ArrowRight, Check, LockKeyhole, Mail, ShieldCheck } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
@@ -33,7 +33,13 @@ function isValidEmail(email: string) {
 }
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
+  const { email: registeredEmailParam, registered: registeredParam } =
+    useLocalSearchParams<{ email?: string | string[]; registered?: string | string[] }>();
+  const registrationEmail =
+    registeredParam === 'true' && typeof registeredEmailParam === 'string'
+      ? registeredEmailParam.trim()
+      : '';
+  const [email, setEmail] = useState(registrationEmail);
   const [accountPassword, setAccountPassword] = useState('');
   const [rememberEmail, setRememberEmail] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -43,7 +49,7 @@ export default function LoginScreen() {
   const [storageError, setStorageError] = useState<string | null>(null);
   const emailInputRef = useRef<TextInputInstance>(null);
   const passwordInputRef = useRef<TextInputInstance>(null);
-  const emailWasEdited = useRef(false);
+  const emailWasEdited = useRef(Boolean(registrationEmail));
   const submitting = useRef(false);
   const router = useRouter();
   const vault = useVault();
@@ -200,6 +206,12 @@ export default function LoginScreen() {
                 Sign in to your Lockr account. Vault unlocking is separate.
               </Text>
             </View>
+
+            {registrationEmail && (
+              <Text accessibilityLiveRegion="polite" style={styles.registrationNotice}>
+                Account created successfully. Sign in with {registrationEmail}.
+              </Text>
+            )}
 
             <View style={styles.form}>
               <AuthTextInput
@@ -422,6 +434,18 @@ const styles = StyleSheet.create({
     color: AuthColors.secondaryText,
     fontSize: 14,
     lineHeight: 21,
+    textAlign: 'center',
+  },
+  registrationNotice: {
+    marginBottom: 18,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 12,
+    backgroundColor: '#F0FDF4',
+    color: AuthColors.success,
+    fontSize: 13,
+    lineHeight: 19,
     textAlign: 'center',
   },
   form: {

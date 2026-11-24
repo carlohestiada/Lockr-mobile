@@ -73,7 +73,7 @@ export const authService = {
     return session;
   },
 
-  async register(request: RegisterRequest): Promise<AuthSession> {
+  async register(request: RegisterRequest): Promise<AuthUser> {
     const response = await apiRequest<unknown>('auth/register', {
       method: 'POST',
       body: {
@@ -82,9 +82,7 @@ export const authService = {
       },
     });
 
-    const session = parseAuthSession(response);
-    await saveAuthToken(session.token);
-    return session;
+    return parseAuthUser(parseEnvelopeData(response));
   },
 
   async getCurrentUser(token?: string): Promise<AuthUser> {

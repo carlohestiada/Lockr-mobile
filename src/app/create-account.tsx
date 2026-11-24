@@ -28,7 +28,10 @@ import { PasswordVisibilityToggle } from '@/components/auth/password-visibility-
 import { useAuth } from '@/contexts/auth-context';
 import { RegistrationNotConfiguredError } from '@/services/registration-service';
 import { ApiRequestError, getFirstValidationError } from '@/services/api/api-errors';
-import { AuthStorageError } from '@/services/token-storage';
+import {
+  getRegistrationLoginRoute,
+  submitRegistrationOnce,
+} from '@/services/registration-flow';
 import {
   validateRegistration,
   type RegistrationErrors,
@@ -68,27 +71,35 @@ export default function CreateAccountScreen() {
     setRegistrationError(null);
     if (Object.keys(nextErrors).length > 0) return;
 
-    submitting.current = true;
     setIsSubmitting(true);
 
     try {
-      await register({
-        fullName: fullName.trim(),
-        email: email.trim(),
-        password: accountPassword,
-        passwordConfirmation: confirmPassword,
-      });
-      router.replace('/vault-onboarding');
+      await submitRegistrationOnce(
+        submitting,
+        async () => {
+          await register({
+            fullName: fullName.trim(),
+            email: email.trim().toLowerCase(),
+            password: accountPassword,
+            passwordConfirmation: confirmPassword,
+          });
+        },
+        () => router.replace(getRegistrationLoginRoute(email.trim().toLowerCase())),
+      );
     } catch (error) {
       if (error instanceof RegistrationNotConfiguredError) {
         setRegistrationError(error.message);
-      } else if (error instanceof AuthStorageError) {
-        setRegistrationError('We could not securely save your sign-in. Please try again.');
       } else if (error instanceof ApiRequestError) {
+        const passwordError =
+          getFirstValidationError(error, 'password') ??
+          getFirstValidationError(error, 'password_confirmation');
+        const passwordIsConfirmationError =
+          passwordError?.toLowerCase().includes('confirm') ?? false;
         setErrors({
           fullName: getFirstValidationError(error, 'name'),
           email: getFirstValidationError(error, 'email'),
-          accountPassword: getFirstValidationError(error, 'password'),
+          accountPassword: passwordIsConfirmationError ? undefined : passwordError,
+          confirmPassword: passwordIsConfirmationError ? passwordError : undefined,
         });
         setRegistrationError(error.message);
       } else {
@@ -99,7 +110,6 @@ export default function CreateAccountScreen() {
       setConfirmPassword('');
       setShowAccountPassword(false);
       setShowConfirmPassword(false);
-      submitting.current = false;
       setIsSubmitting(false);
     }
   }

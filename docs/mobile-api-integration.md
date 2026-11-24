@@ -10,7 +10,7 @@ per environment. Timeout and connectivity failures are reported separately.
 
 | Method | Endpoint | Authentication | Purpose |
 |---|---|---|---|
-| POST | `/api/v1/auth/register` | None | Create an account and issue a mobile token |
+| POST | `/api/v1/auth/register` | None | Create an account; sign-in remains a separate step |
 | POST | `/api/v1/auth/login` | None | Authenticate account credentials and issue a mobile token |
 | POST | `/api/v1/auth/logout` | Bearer token | Revoke the current mobile token |
 | GET | `/api/v1/auth/me` | Bearer token | Return the safe account profile |
@@ -26,7 +26,7 @@ reset attempts to the API without storing the reset token or new password. A
 successful reset returns the user to sign-in; reset tokens remain single-use
 and expire according to Laravel's password broker configuration.
 
-Successful login and registration return `{ "data": { "token", "token_type": "Bearer", "user" } }`. Authenticated responses contain only `id`, `name`, and `email`. Validation errors use HTTP 422; invalid credentials and invalid sessions use HTTP 401; forbidden requests use HTTP 403; rate limits use HTTP 429.
+Successful registration returns `{ "data": { "id", "name", "email" } }` and does not issue a token or sign the user in. Successful login returns `{ "data": { "token", "token_type": "Bearer", "user" } }`. Authenticated responses contain only `id`, `name`, and `email`. Validation errors use HTTP 422; invalid credentials and invalid sessions use HTTP 401; forbidden requests use HTTP 403; rate limits use HTTP 429.
 
 At startup the mobile app reads the token from SecureStore and verifies it with
 `/auth/me` before allowing authenticated routes. It rechecks after the app has

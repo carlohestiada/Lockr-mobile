@@ -217,21 +217,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const register = useCallback(async (request: RegisterAccountRequest) => {
-    const operationId = ++operationIdRef.current;
-    setAuthState((current) => ({ ...current, notice: null, canRetrySessionRestore: false }));
-    const session = await registrationService.register(request);
-    if (operationId !== operationIdRef.current) {
-      await clearAuthToken(session.token);
-      return;
-    }
-
-    activeTokenRef.current = session.token;
-    setAuthState({
-      status: 'authenticated',
-      user: session.user,
-      notice: null,
-      canRetrySessionRestore: false,
-    });
+    await registrationService.register(request);
   }, []);
 
   const signOut = useCallback(async () => {
