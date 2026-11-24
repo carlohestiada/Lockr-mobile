@@ -23,6 +23,7 @@ import { ApiRequestError, getFirstValidationError } from '@/services/api/api-err
 import { useAuth } from '@/contexts/auth-context';
 import { useVault } from '@/contexts/vault-context';
 import { AuthStorageError } from '@/services/token-storage';
+import { getAuthenticatedVaultRoute } from '@/services/vault-navigation';
 import { AuthColors } from '@/theme/auth-colors';
 
 const REMEMBERED_EMAIL_KEY = 'lockr.remembered-email';
@@ -144,7 +145,7 @@ export default function LoginScreen() {
         email: normalizedEmail,
         password: accountPassword,
       });
-      router.replace('/account');
+      router.replace(getAuthenticatedVaultRoute(vault.status) ?? '/account');
     } catch (error) {
       if (error instanceof ApiConfigurationError) {
         setLoginError('Account sign-in is not configured. Your credentials were not sent.');

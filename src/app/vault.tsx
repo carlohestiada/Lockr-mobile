@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AuthButton } from '@/components/auth/auth-button';
+import { SignOutButton } from '@/components/auth/sign-out-button';
 import { VaultScreen } from '@/components/vault/vault-screen';
 import { useVault } from '@/contexts/vault-context';
 import {
@@ -222,6 +223,7 @@ export default function VaultHomeScreen() {
         label="Add credential"
         onPress={() => router.push('/vault-credential')}
       />
+      <SignOutButton />
       <Link href="/trusted-devices" asChild>
         <Pressable accessibilityRole="link" style={styles.trustedLink}>
           <Text style={styles.trustedLinkText}>Trusted-device recovery status</Text>

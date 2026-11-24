@@ -52,6 +52,26 @@ describe('authentication service', () => {
     expect(saveAuthToken).not.toHaveBeenCalled();
   });
 
+  it('does not persist a token after a network failure', async () => {
+    jest.mocked(apiRequest).mockRejectedValue(new ApiRequestError('network', null));
+
+    await expect(
+      authService.signIn({ email: 'mobile@example.com', password: 'account-password' }),
+    ).rejects.toMatchObject({ code: 'network' });
+    expect(saveAuthToken).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed authentication responses before storing a token', async () => {
+    jest.mocked(apiRequest).mockResolvedValue({
+      data: { token: 'issued-token', token_type: 'Bearer' },
+    });
+
+    await expect(
+      authService.signIn({ email: 'mobile@example.com', password: 'account-password' }),
+    ).rejects.toMatchObject({ code: 'request' });
+    expect(saveAuthToken).not.toHaveBeenCalled();
+  });
+
   it('registers with Laravel field names and persists the returned token', async () => {
     jest.mocked(apiRequest).mockResolvedValue({ data: session });
     jest.mocked(saveAuthToken).mockResolvedValue(undefined);
@@ -121,6 +141,13 @@ describe('authentication service', () => {
     jest.mocked(apiRequest).mockRejectedValueOnce(new ApiRequestError('network', null));
     await expect(authService.restoreSession()).rejects.toMatchObject({ code: 'network' });
     expect(clearAuthToken).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed current-user responses during session restoration', async () => {
+    jest.mocked(getAuthToken).mockResolvedValue('stored-token');
+    jest.mocked(apiRequest).mockResolvedValue({ data: { user: { id: 'invalid' } } });
+
+    await expect(authService.restoreSession()).rejects.toMatchObject({ code: 'request' });
   });
 
   it('sends logout with the captured token rather than relying on current storage', async () => {
